@@ -29,15 +29,17 @@
   --radius:16px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{background:var(--bg);-webkit-text-size-adjust:100%}
+html{background:var(--bg);-webkit-text-size-adjust:100%;height:100%;overflow:hidden;scrollbar-width:none}
 html.splash-lock{overflow:hidden}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
   color:var(--ink);font-size:16px;line-height:1.6;
   min-height:100vh;min-height:100dvh;
+  height:100%;overflow-y:auto;overscroll-behavior:none;-webkit-overflow-scrolling:touch;scrollbar-width:none;
   padding-bottom:calc(84px + env(safe-area-inset-bottom));
   -webkit-touch-callout:none;
 }
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
 /* 柔光渐层背景，fixed 常驻，body 不设背景色 */
 body::before{
   content:"";position:fixed;left:-30%;right:-30%;top:-18%;height:58vh;
@@ -63,7 +65,7 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
   radial-gradient(60% 46% at 32% 42%, rgba(120,150,240,.30), transparent 70%),
   radial-gradient(56% 46% at 74% 60%, rgba(165,195,250,.34), transparent 70%)}
 #splash.hide{opacity:0;pointer-events:none}
-.sp-inner{position:relative;text-align:center;opacity:0;animation:splashFade .35s ease .34s forwards}
+.sp-inner{position:relative;text-align:center;opacity:0;transform:translateY(-9vh);animation:splashFade .35s ease .34s forwards}
 .sp-logo{width:64px;height:64px;border-radius:20px;margin:0 auto 16px;background:linear-gradient(135deg,#5b7cf0,#8aa6f8);box-shadow:0 14px 30px -12px rgba(79,116,227,.6)}
 .sp-inner p{font-size:22px;font-weight:700;letter-spacing:.12em}
 .sp-inner span{display:block;font-size:13px;color:var(--sub);margin-top:6px;letter-spacing:.28em}
@@ -308,7 +310,7 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
 <script>
 'use strict';
 /* ================= 应用标识 ================= */
-const APP = { id:'local-task-memo', name:'轻记', version:'1.0.0', schemaVersion:1 };
+const APP = { id:'local-task-memo', name:'轻记', version:'1.1', schemaVersion:1 };
 const STORES = ['tasks','memos','meta'];
 
 /* ================= 数据层 ================= */
@@ -1085,7 +1087,7 @@ document.getElementById('tabbar').addEventListener('click', e => {
   if (state.tab === b.dataset.tab) return;
   state.tab = b.dataset.tab;
   render();
-  window.scrollTo({ top:0 });
+  document.body.scrollTo({ top:0 });
 });
 segBind('tRec', v => {
   state.taskDraft.recurrence = v;
