@@ -409,7 +409,7 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
 <script>
 'use strict';
 /* ================= 应用标识 ================= */
-const APP = { id:'local-task-memo', name:'轻记', version:'1.4', schemaVersion:2 };
+const APP = { id:'local-task-memo', name:'轻记', version:'1.5', schemaVersion:2 };
 const STORES = ['tasks','memos','notes','meta'];
 
 /* ================= 数据层 ================= */
@@ -762,12 +762,15 @@ function taskCardHTML(t, ds){
   </div>`;
 }
 
-/* 统计页只读卡片：无圆圈勾选、无删除线与标签，仅任务名 + 完成日期 */
+/* 统计页只读卡片：无圆圈勾选、无删除线与标签，仅任务名 + 完成时刻 */
 function statsDoneCardHTML(t, ds){
+  const ts = t.completedTimes && t.completedTimes[ds];
+  let timeStr = '';
+  if (ts){ const d = new Date(ts); timeStr = `完成于 ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
   return `<div class="task-card glass stats-done">
     <div class="t-body">
       <p class="t-title" style="white-space:normal;color:var(--ink)">${esc(t.title)}</p>
-      <p class="t-meta">完成于 ${fmtDayCN(ds)}</p>
+      ${timeStr ? `<p class="t-meta">${timeStr}</p>` : ''}
     </div>
   </div>`;
 }
@@ -1023,8 +1026,9 @@ async function toggleComplete(id, cardEl){
   const ds = state.tab === 'tasks' ? (state.taskDate || dstr(new Date())) : dstr(new Date());
   const i = t.completedDates.indexOf(ds);
   const finishing = i < 0;
-  if (finishing) t.completedDates.push(ds);
-  else t.completedDates.splice(i,1);
+  if (!t.completedTimes) t.completedTimes = {};
+  if (finishing){ t.completedDates.push(ds); t.completedTimes[ds] = nowTs(); }
+  else { t.completedDates.splice(i,1); delete t.completedTimes[ds]; }
   t.updatedAt = nowTs();
   await DB.put('tasks', t);
   if (cardEl && finishing && !reducedMotion()){
