@@ -1,5 +1,5 @@
 /* 轻记 Service Worker：更新版本时把 CACHE 里的 v1 改成 v2 即可 */
-const CACHE = 'qingji-v12';
+const CACHE = 'qingji-v13';
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
