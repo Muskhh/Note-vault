@@ -1464,6 +1464,17 @@ document.addEventListener('click', e => {
 });
 
 /* ================= 启动 ================= */
+/* 系统恢复式启动或程序内重载后，iOS 首屏可能不重绘、滚动位置可能被还原：
+   禁用系统滚动恢复，并在回到前台时回顶重绘一次 */
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden){ document.body.scrollTo({ top:0 }); render(); }
+});
+window.addEventListener('pageshow', e => {
+  document.body.scrollTo({ top:0 });
+  if (e.persisted) render();
+});
+
 (async function boot(){
   await DB.init();
   let data = { tasks:[], memos:[], meta:[] };
@@ -1497,6 +1508,11 @@ document.addEventListener('click', e => {
     document.body.scrollTo({ top:0 });
     sp.classList.add('hide');
     setTimeout(() => sp.remove(), 500);
+    /* 重载/恢复式启动后首屏可能缺绘制：强制重排重绘一次（效果等同切换页面） */
+    render();
+    document.body.style.display = 'none';
+    void document.body.offsetHeight;
+    document.body.style.display = '';
   }, 1600);
 })();
 </script>
