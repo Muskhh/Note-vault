@@ -340,8 +340,12 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
     </div>
   </div>
   <div class="field">
-    <label for="tSummary">当日总结 · 写给自己：今天的想法、收获、不足…</label>
-    <textarea id="tSummary" maxlength="1000" placeholder="今天过得怎么样？写下总结、想法或不足，跟着上面的日期一起保存"></textarea>
+    <label for="tSummary">当日进步 · 今天的收获与整体总结</label>
+    <textarea id="tSummary" maxlength="1000" placeholder="今天有哪些进步？这一天整体过得怎么样？"></textarea>
+  </div>
+  <div class="field">
+    <label for="tDeficiency">今日不足 · 保存后自动变成明天的修正任务</label>
+    <textarea id="tDeficiency" maxlength="1000" placeholder="一行写一个不足，保存后会自动加进明天的任务列表，提醒自己去改正"></textarea>
   </div>
   <div class="sheetbtns">
     <button class="btn" id="tDelete" hidden>删除</button>
@@ -409,7 +413,7 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
 <script>
 'use strict';
 /* ================= 应用标识 ================= */
-const APP = { id:'local-task-memo', name:'轻记', version:'1.5', schemaVersion:2 };
+const APP = { id:'local-task-memo', name:'轻记', version:'1.6', schemaVersion:2 };
 const STORES = ['tasks','memos','notes','meta'];
 
 /* ================= 数据层 ================= */
@@ -625,6 +629,10 @@ function summaryOf(ds){
   const n = state.notes.find(x => x.id === 'note-' + ds);
   return (n && n.text) ? n.text : '';
 }
+function deficiencyOf(ds){
+  const n = state.notes.find(x => x.id === 'note-' + ds);
+  return (n && n.def) ? n.def : '';
+}
 function fmtDayCN(ds){
   const d = new Date(ds + 'T00:00:00');
   return `${d.getMonth()+1}月${d.getDate()}日`;
@@ -777,11 +785,19 @@ function statsDoneCardHTML(t, ds){
 
 /* 统计页只读总结卡：仅查看，修改需去任务页 */
 function statsSummaryHTML(ds){
-  const txt = summaryOf(ds);
+  const prog = summaryOf(ds), def = deficiencyOf(ds);
+  let bodyHtml = '';
+  if (prog){
+    bodyHtml += `<p class="t-meta" style="margin-top:8px">进步</p><p class="t-title" style="white-space:normal;color:var(--ink)">${esc(prog)}</p>`;
+  }
+  if (def){
+    bodyHtml += `<p class="t-meta" style="margin-top:8px">不足</p><p class="t-title" style="white-space:normal;color:var(--ink)">${esc(def)}</p>`;
+  }
+  if (!bodyHtml) bodyHtml = `<p class="t-title" style="white-space:normal;color:var(--sub)">这一天还没有写总结</p>`;
   return `<div class="task-card glass stats-note">
     <div class="t-body">
       <p class="t-meta">当日总结 · ${fmtDayCN(ds)}</p>
-      <p class="t-title" style="white-space:normal;color:var(--ink);margin-top:6px">${esc(txt)}</p>
+      ${bodyHtml}
     </div>
   </div>`;
 }
@@ -961,6 +977,7 @@ function openTaskSheet(id){
   }
   document.getElementById('tTitle').value = state.taskDraft.title;
   document.getElementById('tSummary').value = summaryOf(currentTaskDate());
+  document.getElementById('tDeficiency').value = deficiencyOf(currentTaskDate());
   syncSeg('tRec', state.taskDraft.recurrence);
   document.getElementById('tWkField').hidden = state.taskDraft.recurrence !== 'weekly';
   document.querySelectorAll('#tWk button').forEach(b => b.classList.toggle('on', +b.dataset.v === state.taskDraft.weekDay));
@@ -980,7 +997,8 @@ function segBind(id, cb){
 async function saveTask(){
   const title = document.getElementById('tTitle').value.trim();
   const sum = document.getElementById('tSummary').value.trim();
-  if (!title && !sum){ toast('先写点内容吧'); return; }
+  const def = document.getElementById('tDeficiency').value.trim();
+  if (!title && !sum && !def){ toast('先写点内容吧'); return; }
   if (!title && state.editingTaskId){ toast('先写个标题吧'); return; }
   const d = state.taskDraft;
   if (title){
@@ -1002,10 +1020,37 @@ async function saveTask(){
   }
   /* 当日总结：以输入框内容为准，保存到任务页当前所选日期 */
   const ds = currentTaskDate();
-  await DB.put('notes', { id: 'note-' + ds, ds, text: sum, updatedAt: nowTs() });
+  await DB.put('notes', { id: 'note-' + ds, ds, text: sum, def, updatedAt: nowTs() });
   state.notes = await DB.getAll('notes');
+  /* 今日不足自动转成明天的修正任务；编辑总结时同步增减，已完成的不重复生成 */
+  await syncFixTasks(ds, def);
   hideSheets(); render();
   if (!title) toast('总结已保存');
+}
+
+/* 把某天总结里的不足，同步成次日的「修正」任务（明天的不足会排到后天，依次类推） */
+async function syncFixTasks(ds, defText){
+  const base = new Date(ds + 'T00:00:00'); base.setDate(base.getDate() + 1);
+  const targetDs = dstr(base);
+  const lines = defText.split('\n').map(s => s.trim()).filter(Boolean);
+  const titles = lines.map(l => '修正：' + l);
+  const autos = state.tasks.filter(t => t.autoFrom === ds && !t.deleted);
+  let maxOrder = state.tasks.reduce((m,t) => Math.max(m, t.sortOrder||0), 0);
+  for (const t of autos){
+    if (titles.includes(t.title)) continue;   /* 内容没变：保留原任务（含完成状态） */
+    t.deleted = true; t.updatedAt = nowTs();
+    await DB.put('tasks', t);
+  }
+  const kept = new Set(autos.filter(t => titles.includes(t.title)).map(t => t.title));
+  for (const title of titles){
+    if (kept.has(title)) continue;
+    await DB.put('tasks', {
+      id: genId(), title, recurrence:'once', weekDay: isoWeekday(base),
+      targetDate: targetDs, completedDates:[], createdAt: nowTs(), updatedAt: nowTs(),
+      deleted:false, sortOrder: ++maxOrder, autoFrom: ds
+    });
+  }
+  state.tasks = await DB.getAll('tasks');
 }
 function currentTaskDate(){
   return state.tab === 'tasks' ? (state.taskDate || dstr(new Date())) : dstr(new Date());
@@ -1277,8 +1322,10 @@ function buildTxt(days){
       });
     }
     if (note){
+      const prog = summaryOf(ds), def = deficiencyOf(ds);
       body.push('当日总结：');
-      note.split('\n').forEach(line => body.push(`  ${line}`));
+      if (prog) prog.split('\n').forEach(line => body.push(`  [进步] ${line}`));
+      if (def) def.split('\n').forEach(line => body.push(`  [不足] ${line}`));
     }
     body.push('');
   }
