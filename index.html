@@ -2,7 +2,7 @@
 <html lang="zh-CN" class="splash-lock">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="轻记">
@@ -11,6 +11,8 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>轻记 · 任务与备忘</title>
 <style>
+/* 全局禁用双击缩放，保留滚动与手势 */
+*{touch-action:manipulation}
 :root{
   --bg:#eef2fa;
   --ink:#16202f;
@@ -433,7 +435,7 @@ input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
 <script>
 'use strict';
 /* ================= 应用标识 ================= */
-const APP = { id:'local-task-memo', name:'轻记', version:'1.8', schemaVersion:2 };
+const APP = { id:'local-task-memo', name:'轻记', version:'1.9', schemaVersion:2 };
 const STORES = ['tasks','memos','notes','meta'];
 
 /* ================= 数据层 ================= */
